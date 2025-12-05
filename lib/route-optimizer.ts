@@ -13,12 +13,14 @@ async function getRouteGeometryGoogleMaps(
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   
   if (!apiKey) {
-    console.log("Google Maps API key não configurada, usando OSRM");
+    console.log("ℹ️ Google Maps API key não configurada, usando OSRM (gratuito)");
     return getRouteGeometryOSRM(start, end);
   }
 
   try {
-    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${start.lat},${start.lng}&destination=${end.lat},${end.lng}&key=${apiKey}`;
+    console.log("✅ Usando Google Maps Directions API");
+    // Usar API Route do Next.js para evitar problemas de CORS
+    const url = `/api/directions?origin=${start.lat},${start.lng}&destination=${end.lat},${end.lng}`;
     
     const response = await fetch(url);
     const data = await response.json();
@@ -27,15 +29,26 @@ async function getRouteGeometryGoogleMaps(
       const route = data.routes[0];
       const polyline = route.overview_polyline.points;
       
+      console.log("✅ Rota obtida com sucesso do Google Maps");
+      
       // Decodificar polyline do Google Maps
       const coordinates = decodePolyline(polyline);
       return coordinates;
     }
 
-    console.warn("Google Maps API falhou, usando OSRM como fallback");
+    if (data.status === "REQUEST_DENIED") {
+      console.error("❌ Google Maps API: REQUEST_DENIED - Verifique sua API key e se a Directions API está ativada");
+    } else if (data.status === "OVER_QUERY_LIMIT") {
+      console.warn("⚠️ Google Maps API: OVER_QUERY_LIMIT - Limite de requisições excedido");
+    } else {
+      console.warn(`⚠️ Google Maps API retornou status: ${data.status}`);
+    }
+    
+    console.warn("⚠️ Usando OSRM como fallback");
     return getRouteGeometryOSRM(start, end);
   } catch (error) {
-    console.error("Erro ao buscar rota no Google Maps:", error);
+    console.error("❌ Erro ao buscar rota no Google Maps:", error);
+    console.warn("⚠️ Usando OSRM como fallback");
     return getRouteGeometryOSRM(start, end);
   }
 }

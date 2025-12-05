@@ -1,6 +1,16 @@
 [build]
   command = "npm run build"
-  publish = "out"
+  publish = ".next"
 
 [build.environment]
   NETLIFY_NEXT_PLUGIN_SKIP = "true"
+
+# Google Maps API Configuration
+# IMPORTANTE: Configure a variável NEXT_PUBLIC_GOOGLE_MAPS_API_KEY no painel do Netlify
+# Site Settings > Environment Variables > Add a variable
+# Nome: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+# Valor: Sua API key do Google Maps
+#
+# Ou descomente e adicione aqui (NÃO RECOMENDADO para repositórios públicos):
+# [context.production.environment]
+#   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = "sua_api_key_aqui"

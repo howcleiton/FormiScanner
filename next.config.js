@@ -1,11 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: 'export',
+  // output: 'export', // Removido para permitir API Routes
   images: {
     unoptimized: true,
   },
-  trailingSlash: true,
+  // trailingSlash: true, // Removido para compatibilidade
 }
 
 module.exports = nextConfig
