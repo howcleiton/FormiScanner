@@ -1,0 +1,12 @@
+/* Fix para ícones do Leaflet */
+.leaflet-default-icon-path {
+  background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png);
+}
+
+.leaflet-container .leaflet-marker-icon {
+  background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png);
+}
+
+.leaflet-container .leaflet-marker-shadow {
+  background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png);
+}
