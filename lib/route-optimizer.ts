@@ -131,9 +131,18 @@ async function fetchRouteGeometry(points: RoutePoint[]): Promise<Coordinates[] |
     // Usar API Route do Next.js para evitar problemas de CORS
     const start = points[0].coordinates;
     const end = points[points.length - 1].coordinates;
+    const waypoints = points
+      .slice(1, -1)
+      .map(p => `${p.coordinates.lat},${p.coordinates.lng}`)
+      .join('|');
 
-    const url = `/api/directions?origin=${start.lat},${start.lng}&destination=${end.lat},${end.lng}`;
+    const params = new URLSearchParams({
+      origin: `${start.lat},${start.lng}`,
+      destination: `${end.lat},${end.lng}`,
+    });
 
+    if (waypoints) params.append('waypoints', waypoints);
+    const url = `/api/directions?${params.toString()}`;
     const response = await fetch(url);
     const data = await response.json();
 
