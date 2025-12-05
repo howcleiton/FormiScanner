@@ -1,6 +1,6 @@
 [build]
   command = "npm run build"
-  publish = ".next"
+  publish = "out"
 
 [build.environment]
   NETLIFY_NEXT_PLUGIN_SKIP = "true"
@@ -14,3 +14,7 @@
 # Ou descomente e adicione aqui (NÃO RECOMENDADO para repositórios públicos):
 # [context.production.environment]
 #   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = "sua_api_key_aqui"
+
+# Netlify Functions para API Routes
+[functions]
+  directory = "netlify/functions"
