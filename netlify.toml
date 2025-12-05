@@ -1,9 +1,5 @@
 [build]
   command = "npm run build"
-  
-
-[build.environment]
-  NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
 # Google Maps API Configuration
 # IMPORTANTE: Configure a variável NEXT_PUBLIC_GOOGLE_MAPS_API_KEY no painel do Netlify
