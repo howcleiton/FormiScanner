@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import Tesseract from "tesseract.js";
+import PaddleOCR from "paddleocr-browser";
 import type { Address } from "@/types/address";
 
 interface OCRCameraProps {
