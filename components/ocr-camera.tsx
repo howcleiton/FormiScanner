@@ -213,20 +213,42 @@ export default function OCRCamera({ onBack, onSave }: OCRCameraProps) {
     console.log("[v0] Iniciando processamento OCR...");
 
     try {
-      // Processar OCR com configurações otimizadas
-      const result = await Tesseract.recognize(capturedImage, "por", {
-        logger: (m) => {
-          if (m.status === "recognizing text") {
-            console.log(
-              "[v0] Progresso OCR:",
-              Math.round(m.progress * 100) + "%"
-            );
-          }
-        },
-      });
+      let text = "";
+      let ocrEngine = "";
 
-      const text = result.data.text;
-      console.log("[v0] Texto completo extraído:", text);
+      // Tentar PaddleOCR primeiro (mais preciso)
+      try {
+        console.log("[v0] Tentando PaddleOCR...");
+        const paddleResult = await PaddleOCR.recognize(capturedImage);
+        text = paddleResult.text;
+        ocrEngine = "PaddleOCR";
+        console.log("[v0] PaddleOCR sucesso - Texto extraído:", text);
+      } catch (paddleError) {
+        console.warn("[v0] PaddleOCR falhou, tentando Tesseract:", paddleError);
+
+        // Fallback para Tesseract
+        console.log("[v0] Usando Tesseract como fallback...");
+        const tesseractResult = await Tesseract.recognize(
+          capturedImage,
+          "por",
+          {
+            logger: (m) => {
+              if (m.status === "recognizing text") {
+                console.log(
+                  "[v0] Progresso Tesseract:",
+                  Math.round(m.progress * 100) + "%"
+                );
+              }
+            },
+          }
+        );
+
+        text = tesseractResult.data.text;
+        ocrEngine = "Tesseract";
+        console.log("[v0] Tesseract sucesso - Texto extraído:", text);
+      }
+
+      console.log(`[v0] Engine OCR usado: ${ocrEngine}`);
       setOcrText(text);
 
       // Extrair informações adicionais

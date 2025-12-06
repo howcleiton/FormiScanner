@@ -14,6 +14,13 @@ export interface OptimizedRoute {
   totalDistance: number;
   estimatedTime: number;
   routeGeometry?: Coordinates[]; // Coordenadas da rota pelas ruas
+  failedAddresses?: Address[]; // Endereços que não puderam ser geocodificados
+}
+
+export interface CurrentLocation {
+  coordinates: Coordinates;
+  timestamp: number;
+  accuracy?: number;
 }
 
 export interface Address {

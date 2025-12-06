@@ -109,19 +109,60 @@ export async function geocodeMultipleAddresses(
 
   for (let i = 0; i < addresses.length; i++) {
     const address = addresses[i];
-    const coords = await geocodeCEP(
+    console.log(`📍 Geocodificando ${i + 1}/${addresses.length}: ${address.rua}, ${address.cidade}`);
+    
+    // Tentar geocodificar com retry
+    let coords = await geocodeCEPWithRetry(
       address.cep,
       address.cidade,
       address.estado,
       address.rua
     );
+    
     results.push(coords);
+    
+    if (coords) {
+      console.log(`✅ Sucesso: ${address.rua}, ${address.cidade}`);
+    } else {
+      console.error(`❌ Falha ao geocodificar: ${address.rua}, ${address.cidade}`);
+    }
 
-    // Delay de 1 segundo entre requisições para respeitar rate limits
+    // Delay de 500ms entre requisições para respeitar rate limits (reduzido de 1s)
     if (i < addresses.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
 
   return results;
+}
+
+/**
+ * Geocodifica um endereço com retry em caso de falha
+ */
+async function geocodeCEPWithRetry(
+  cep: string,
+  cidade: string,
+  estado: string,
+  rua?: string,
+  maxRetries: number = 2
+): Promise<Coordinates | null> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const coords = await geocodeCEP(cep, cidade, estado, rua);
+      if (coords) return coords;
+      
+      // Se não encontrou, tentar novamente após um delay
+      if (attempt < maxRetries) {
+        console.log(`⚠️ Tentativa ${attempt + 1} falhou, tentando novamente...`);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    } catch (error) {
+      console.error(`❌ Erro na tentativa ${attempt + 1}:`, error);
+      if (attempt < maxRetries) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+  }
+  
+  return null;
 }

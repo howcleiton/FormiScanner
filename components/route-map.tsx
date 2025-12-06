@@ -6,12 +6,13 @@ import {
   Navigation,
   MapPin,
   Route as RouteIcon,
+  Crosshair,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { Address } from "@/types/address";
-import type { OptimizedRoute } from "@/types/route";
+import type { OptimizedRoute, CurrentLocation } from "@/types/route";
 import {
   optimizeRoute,
   generateGoogleMapsUrl,
@@ -51,6 +52,9 @@ export default function RouteMap({ addresses, onBack }: RouteMapProps) {
     null
   );
   const [mapReady, setMapReady] = useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [currentLocation, setCurrentLocation] =
+    useState<CurrentLocation | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -59,6 +63,75 @@ export default function RouteMap({ addresses, onBack }: RouteMapProps) {
       setMapReady(true);
     }
   }, []);
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: "Geolocalização não suportada",
+        description: "Seu navegador não suporta geolocalização.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGettingLocation(true);
+    toast({
+      title: "Capturando localização...",
+      description: "Aguarde enquanto obtemos sua localização atual.",
+    });
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const location: CurrentLocation = {
+          coordinates: {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          },
+          timestamp: position.timestamp,
+          accuracy: position.coords.accuracy,
+        };
+
+        setCurrentLocation(location);
+        setIsGettingLocation(false);
+
+        toast({
+          title: "Localização capturada!",
+          description: `Lat: ${location.coordinates.lat.toFixed(
+            6
+          )}, Lng: ${location.coordinates.lng.toFixed(6)}`,
+        });
+      },
+      (error) => {
+        setIsGettingLocation(false);
+        let errorMessage = "Erro desconhecido ao obter localização.";
+
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage =
+              "Permissão de localização negada. Permita o acesso à localização no navegador.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage =
+              "Localização indisponível. Verifique sua conexão e GPS.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Tempo limite excedido ao obter localização.";
+            break;
+        }
+
+        toast({
+          title: "Erro na localização",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000, // 5 minutos
+      }
+    );
+  };
 
   const handleOptimizeRoute = async () => {
     if (addresses.length === 0) {
@@ -77,17 +150,29 @@ export default function RouteMap({ addresses, onBack }: RouteMapProps) {
     });
 
     try {
-      const route = await optimizeRoute(addresses);
+      const route = await optimizeRoute(
+        addresses,
+        currentLocation || undefined
+      );
 
       if (!route) {
         throw new Error("Não foi possível otimizar a rota");
       }
 
       setOptimizedRoute(route);
-      toast({
-        title: "Rota otimizada!",
-        description: `${route.points.length} paradas organizadas.`,
-      });
+      // Mostrar aviso se houver endereços que falharam
+      if (route.failedAddresses && route.failedAddresses.length > 0) {
+        toast({
+          title: "Rota criada com avisos",
+          description: `${route.points.length} paradas organizadas. ${route.failedAddresses.length} endereço(s) não puderam ser incluídos.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Rota otimizada!",
+          description: `${route.points.length} paradas organizadas.`,
+        });
+      }
     } catch (error) {
       console.error("Erro ao otimizar rota:", error);
       toast({
@@ -167,23 +252,42 @@ export default function RouteMap({ addresses, onBack }: RouteMapProps) {
 
             <div className="flex gap-3 w-full md:w-auto">
               {!optimizedRoute ? (
-                <Button
-                  onClick={handleOptimizeRoute}
-                  disabled={isOptimizing || addresses.length === 0}
-                  className="flex-1 md:flex-none h-12 bg-[#00FFFF] hover:bg-[#00DDDD] text-[#003366] font-bold"
-                >
-                  {isOptimizing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#003366] mr-2"></div>
-                      Otimizando...
-                    </>
-                  ) : (
-                    <>
-                      <RouteIcon className="w-5 h-5 mr-2" />
-                      Criar Rota Otimizada
-                    </>
-                  )}
-                </Button>
+                <>
+                  <Button
+                    onClick={handleGetCurrentLocation}
+                    disabled={isGettingLocation}
+                    className="flex-1 md:flex-none h-12 bg-[#333333] hover:bg-[#444444] text-white border border-[#404040]"
+                  >
+                    {isGettingLocation ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        Capturando...
+                      </>
+                    ) : (
+                      <>
+                        <Crosshair className="w-5 h-5 mr-2" />
+                        Minha Localização
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={handleOptimizeRoute}
+                    disabled={isOptimizing || addresses.length === 0}
+                    className="flex-1 md:flex-none h-12 bg-[#00FFFF] hover:bg-[#00DDDD] text-[#003366] font-bold"
+                  >
+                    {isOptimizing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#003366] mr-2"></div>
+                        Otimizando...
+                      </>
+                    ) : (
+                      <>
+                        <RouteIcon className="w-5 h-5 mr-2" />
+                        Criar Rota Otimizada
+                      </>
+                    )}
+                  </Button>
+                </>
               ) : (
                 <>
                   <Button
@@ -288,50 +392,100 @@ export default function RouteMap({ addresses, onBack }: RouteMapProps) {
 
         {/* Lista de Paradas */}
         {optimizedRoute && (
-          <Card className="bg-[#2a2a2a] border-[#404040] p-6">
-            <h3 className="text-lg font-bold text-[#00FFFF] mb-4 flex items-center gap-2">
-              <MapPin className="w-5 h-5" />
-              Ordem de Entrega
-            </h3>
-            <div className="space-y-3">
-              {optimizedRoute.points.map((point) => (
-                <div
-                  key={point.address.id}
-                  className="bg-[#1a1a1a] p-4 rounded-lg border border-[#404040] hover:border-[#00FFFF] transition-all"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-10 h-10 bg-[#00FFFF] rounded-full flex items-center justify-center">
-                      <span className="text-[#003366] font-bold text-lg">
-                        {point.order}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      {point.address.destinatario && (
-                        <p className="text-[#00FFFF] font-semibold mb-1">
-                          {point.address.destinatario}
+          <>
+            <Card className="bg-[#2a2a2a] border-[#404040] p-6">
+              <h3 className="text-lg font-bold text-[#00FFFF] mb-4 flex items-center gap-2">
+                <MapPin className="w-5 h-5" />
+                Ordem de Entrega
+              </h3>
+              <div className="space-y-3">
+                {optimizedRoute.points.map((point) => (
+                  <div
+                    key={point.address.id}
+                    className="bg-[#1a1a1a] p-4 rounded-lg border border-[#404040] hover:border-[#00FFFF] transition-all"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-10 h-10 bg-[#00FFFF] rounded-full flex items-center justify-center">
+                        <span className="text-[#003366] font-bold text-lg">
+                          {point.order}
+                        </span>
+                      </div>
+                      <div className="flex-1">
+                        {point.address.destinatario && (
+                          <p className="text-[#00FFFF] font-semibold mb-1">
+                            {point.address.destinatario}
+                          </p>
+                        )}
+                        <p className="text-white font-medium">
+                          {point.address.rua}, {point.address.numero}
                         </p>
-                      )}
-                      <p className="text-white font-medium">
-                        {point.address.rua}, {point.address.numero}
-                      </p>
-                      <p className="text-gray-400 text-sm">
-                        {point.address.bairro} - {point.address.cidade}/
-                        {point.address.estado}
-                      </p>
-                      <p className="text-gray-500 text-sm">
-                        CEP: {point.address.cep}
-                      </p>
-                      {point.address.numeroPedido && (
-                        <p className="text-gray-400 text-sm mt-1">
-                          📦 Pedido: {point.address.numeroPedido}
+                        <p className="text-gray-400 text-sm">
+                          {point.address.bairro} - {point.address.cidade}/
+                          {point.address.estado}
                         </p>
-                      )}
+                        <p className="text-gray-500 text-sm">
+                          CEP: {point.address.cep}
+                        </p>
+                        {point.address.numeroPedido && (
+                          <p className="text-gray-400 text-sm mt-1">
+                            📦 Pedido: {point.address.numeroPedido}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </Card>
+                ))}
+              </div>
+            </Card>
+
+            {/* Avisos de Endereços Não Incluídos */}
+            {optimizedRoute.failedAddresses &&
+              optimizedRoute.failedAddresses.length > 0 && (
+                <Card className="bg-[#2a2a2a] border-red-500 border-2 p-6">
+                  <h3 className="text-lg font-bold text-red-400 mb-4 flex items-center gap-2">
+                    ⚠️ Endereços Não Incluídos na Rota
+                  </h3>
+                  <p className="text-gray-400 mb-4 text-sm">
+                    Os seguintes endereços não puderam ser geocodificados e não
+                    foram incluídos na rota:
+                  </p>
+                  <div className="space-y-3">
+                    {optimizedRoute.failedAddresses.map((address) => (
+                      <div
+                        key={address.id}
+                        className="bg-[#1a1a1a] p-4 rounded-lg border border-red-900"
+                      >
+                        <div className="flex-1">
+                          {address.destinatario && (
+                            <p className="text-red-400 font-semibold mb-1">
+                              {address.destinatario}
+                            </p>
+                          )}
+                          <p className="text-white font-medium">
+                            {address.rua}, {address.numero}
+                          </p>
+                          <p className="text-gray-400 text-sm">
+                            {address.bairro} - {address.cidade}/{address.estado}
+                          </p>
+                          <p className="text-gray-500 text-sm">
+                            CEP: {address.cep}
+                          </p>
+                          {address.numeroPedido && (
+                            <p className="text-gray-400 text-sm mt-1">
+                              📦 Pedido: {address.numeroPedido}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-gray-500 text-sm mt-4">
+                    💡 Dica: Verifique se os endereços estão corretos e tente
+                    novamente.
+                  </p>
+                </Card>
+              )}
+          </>
         )}
 
         {/* Mensagem quando não há endereços */}
